@@ -1,11 +1,18 @@
 import nodemailer from "nodemailer";
 
 const getTransporter = () => {
+    const user = process.env.EMAIL_USER?.trim();
+    const pass = process.env.EMAIL_APP_PASSWORD?.replace(/\s+/g, "");
+
+    if (!user || !pass) {
+        throw new Error("Email is not configured. Set EMAIL_USER and EMAIL_APP_PASSWORD in backend/.env.");
+    }
+
     return nodemailer.createTransport({
         service: "gmail",
         auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_APP_PASSWORD
+            user,
+            pass
         }
     });
 };
@@ -16,7 +23,7 @@ const FROM_NAME = "ZoomRTC";
 export const sendVerificationEmail = async (email, otp) => {
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${process.env.EMAIL_USER}>`,
+        from: `"${FROM_NAME}" <${process.env.EMAIL_USER.trim()}>`,
         to: email,
         subject: "Verify Your Email ─ ZoomRTC",
         html: `
@@ -38,14 +45,19 @@ export const sendVerificationEmail = async (email, otp) => {
     };
 
     const transporter = getTransporter();
-    await transporter.sendMail(mailOptions);
+    try {
+        await transporter.sendMail(mailOptions);
+    } catch (error) {
+        console.error("Verification email delivery failed:", error.code || error.name, error.responseCode || "", error.message);
+        throw new Error("We couldn't send the verification email. Check the email settings and try resending.");
+    }
 };
 
 export const sendResetPasswordEmail = async (email, token) => {
     const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${process.env.EMAIL_USER}>`,
+        from: `"${FROM_NAME}" <${process.env.EMAIL_USER.trim()}>`,
         to: email,
         subject: "Reset Your Password — ZoomRTC",
         html: `
@@ -67,5 +79,10 @@ export const sendResetPasswordEmail = async (email, token) => {
     };
 
     const transporter = getTransporter();
-    await transporter.sendMail(mailOptions);
+    try {
+        await transporter.sendMail(mailOptions);
+    } catch (error) {
+        console.error("Password reset email delivery failed:", error.code || error.name, error.responseCode || "", error.message);
+        throw new Error("We couldn't send the password reset email. Check the email settings and try again.");
+    }
 };

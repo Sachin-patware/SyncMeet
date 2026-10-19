@@ -73,13 +73,17 @@ export default function SignupPage() {
 
     try {
       setLoading(true);
-      await apiRequest("/auth/signup", {
+      const result = await apiRequest("/auth/signup", {
         method: "POST",
         body: { name: name.trim(), email: normalizedEmail, password }
       });
 
       setPendingVerification({ email: normalizedEmail, password });
-      toast.success("Account created. Check your email for the OTP.");
+      if (result.emailSent === false) {
+        toast.error(result.message || "Verification email could not be sent. Try Resend OTP.");
+      } else {
+        toast.success("Account created. Check your email for the OTP.");
+      }
       navigate(`/verify-otp?email=${encodeURIComponent(normalizedEmail)}`, { replace: true });
     } catch (requestError) {
       toast.error(requestError.message || "Unable to create account.");

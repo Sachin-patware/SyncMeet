@@ -38,15 +38,19 @@ export const signup = async (req, res) => {
         });
 
         // Send verification email
+        let emailSent = true;
         try {
             await sendVerificationEmail(email, otp);
         } catch (emailErr) {
+            emailSent = false;
             console.error("Failed to send verification email:", emailErr.message);
         }
 
         res.status(201).json({
-            message: "Account created! Please check your email to verify your account.",
-            user
+            message: emailSent
+                ? "Account created! Please check your email to verify your account."
+                : "Account created, but the verification email could not be sent. Use Resend OTP after checking your email settings.",
+            emailSent
         });
     } catch (error) {
         console.error("Signup error:", error);
@@ -241,6 +245,7 @@ export const resendOTP = async (req, res) => {
             await sendVerificationEmail(email, otp);
         } catch (emailErr) {
             console.error("Failed to send resend email:", emailErr.message);
+            return res.status(502).json({ message: emailErr.message });
         }
 
         res.status(200).json({ message: "A new OTP has been sent to your email." });
