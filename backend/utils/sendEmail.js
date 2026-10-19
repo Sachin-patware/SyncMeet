@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { sendGmailApiMail } from "./gmailMailer.js";
 
 const getTransporter = () => {
     const user = process.env.EMAIL_USER?.trim();
@@ -27,6 +28,10 @@ const maskEmail = (email = "") => {
 };
 
 const deliverMail = async (mailOptions) => {
+    if (process.env.EMAIL_PROVIDER === "gmail-api" || process.env.GOOGLE_REFRESH_TOKEN) {
+        return sendGmailApiMail(mailOptions);
+    }
+
     // Render free web services block SMTP ports, so use an HTTPS mail API there.
     if (process.env.RESEND_API_KEY) {
         if (!process.env.MAIL_FROM) {
@@ -88,11 +93,11 @@ export const sendVerificationEmail = async (email, otp) => {
     const mailOptions = {
         from: process.env.MAIL_FROM || `"${FROM_NAME}" <${process.env.EMAIL_USER?.trim() || "no-reply@localhost"}>`,
         to: email,
-        subject: "Verify Your Email ─ ZoomRTC",
+        subject: "Verify Your Email — SyncMeet",
         html: `
             <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0B0E14; border-radius: 16px; overflow: hidden; border: 1px solid #1E293B;">
                 <div style="background: linear-gradient(135deg, #6366F1, #8B5CF6); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to ZoomRTC</h1>
+                    <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to SyncMeet</h1>
                 </div>
                 <div style="padding: 40px 30px; color: #E2E8F0; text-align: center;">
                     <p style="font-size: 16px; line-height: 1.6;">Thanks for signing up! Enter the 6-digit code below to verify your email address:</p>
