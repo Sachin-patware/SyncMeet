@@ -20,10 +20,73 @@ const getTransporter = () => {
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5174";
 const FROM_NAME = "ZoomRTC";
 
+const maskEmail = (email = "") => {
+    const [localPart, domain] = email.split("@");
+    if (!domain) return "[invalid email]";
+    return `${localPart.slice(0, 1)}***@${domain}`;
+};
+
+const deliverMail = async (mailOptions) => {
+    // Render free web services block SMTP ports, so use an HTTPS mail API there.
+    if (process.env.RESEND_API_KEY) {
+        if (!process.env.MAIL_FROM) {
+            throw new Error("Set MAIL_FROM to an address on a verified Resend domain.");
+        }
+
+        console.debug("[email] Sending through Resend", {
+            to: maskEmail(mailOptions.to),
+            from: process.env.MAIL_FROM
+        });
+
+        const response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                from: process.env.MAIL_FROM,
+                to: [mailOptions.to],
+                subject: mailOptions.subject,
+                html: mailOptions.html
+            })
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const providerMessage = result.message || result.name || "Unknown provider error";
+            console.error("[email] Resend rejected message", {
+                status: response.status,
+                to: maskEmail(mailOptions.to),
+                error: providerMessage
+            });
+            throw new Error(providerMessage);
+        }
+        console.info("[email] Resend accepted message", {
+            id: result.id || "not returned",
+            to: maskEmail(mailOptions.to),
+            note: "Accepted by provider; check Resend Emails for final delivery status."
+        });
+        return;
+    }
+
+    if (process.env.RENDER) {
+        throw new Error("Render cannot send SMTP mail on this plan. Configure RESEND_API_KEY and MAIL_FROM in the Render environment.");
+    }
+
+    const transporter = getTransporter();
+    console.debug("[email] Sending through Gmail SMTP", { to: maskEmail(mailOptions.to) });
+    const result = await transporter.sendMail(mailOptions);
+    console.info("[email] Gmail SMTP accepted message", {
+        messageId: result.messageId,
+        to: maskEmail(mailOptions.to),
+        acceptedCount: result.accepted?.length || 0
+    });
+};
+
 export const sendVerificationEmail = async (email, otp) => {
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${process.env.EMAIL_USER.trim()}>`,
+        from: process.env.MAIL_FROM || `"${FROM_NAME}" <${process.env.EMAIL_USER?.trim() || "no-reply@localhost"}>`,
         to: email,
         subject: "Verify Your Email ─ ZoomRTC",
         html: `
@@ -44,9 +107,8 @@ export const sendVerificationEmail = async (email, otp) => {
         `
     };
 
-    const transporter = getTransporter();
     try {
-        await transporter.sendMail(mailOptions);
+        await deliverMail(mailOptions);
     } catch (error) {
         console.error("Verification email delivery failed:", error.code || error.name, error.responseCode || "", error.message);
         throw new Error("We couldn't send the verification email. Check the email settings and try resending.");
@@ -57,7 +119,7 @@ export const sendResetPasswordEmail = async (email, token) => {
     const resetUrl = `${FRONTEND_URL}/reset-password?token=${token}`;
 
     const mailOptions = {
-        from: `"${FROM_NAME}" <${process.env.EMAIL_USER.trim()}>`,
+        from: process.env.MAIL_FROM || `"${FROM_NAME}" <${process.env.EMAIL_USER?.trim() || "no-reply@localhost"}>`,
         to: email,
         subject: "Reset Your Password — ZoomRTC",
         html: `
@@ -78,9 +140,8 @@ export const sendResetPasswordEmail = async (email, token) => {
         `
     };
 
-    const transporter = getTransporter();
     try {
-        await transporter.sendMail(mailOptions);
+        await deliverMail(mailOptions);
     } catch (error) {
         console.error("Password reset email delivery failed:", error.code || error.name, error.responseCode || "", error.message);
         throw new Error("We couldn't send the password reset email. Check the email settings and try again.");

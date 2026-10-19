@@ -1,10 +1,11 @@
 import { Server } from "socket.io";
 import { verifyAccessToken } from "../utils/generateTokens.js";
+import { allowedOrigins } from "../config/allowedOrigins.js";
 
 export const initializeSocket = (server) => {
     const io = new Server(server, {
         cors: {
-            origin: process.env.FRONTEND_URL || "*",
+            origin: allowedOrigins,
             methods: ["GET", "POST"],
             credentials: true
         }

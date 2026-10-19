@@ -1,23 +1,30 @@
 import express from "express";
 import { createServer } from "http";
 import cors from "cors";
-import dotenv from "dotenv";
+import "dotenv/config";
 import path from "path";
-
-dotenv.config();
 
 // Imports
 import connectDB from "./config/db.js";
 import authRoutes from "./Routes/auth.js";
 import meetingRoutes from "./Routes/meeting.js";
 import { initializeSocket } from "./controllers/socketManager.js";
+import { allowedOrigins } from "./config/allowedOrigins.js";
 
 const app = express();
 const httpServer = createServer(app);
 
+// Render terminates HTTPS at its reverse proxy and forwards client IPs here.
+app.set("trust proxy", 1);
+
 // ─── Middleware ────────────────────────────────────
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error("Origin is not allowed by CORS"));
+    },
     credentials: true
 }));
 

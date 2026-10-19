@@ -4,7 +4,9 @@ import { useAuth } from "./AuthContext";
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL;
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || (import.meta.env.PROD
+  ? "https://zoom-rtc-rujw.onrender.com"
+  : "http://localhost:3000");
 
 export function SocketProvider({ children }) {
   const { accessToken, isAuthenticated } = useAuth();
